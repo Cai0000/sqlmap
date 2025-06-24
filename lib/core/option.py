@@ -2893,62 +2893,62 @@ def init():
     based upon command line and configuration file options.
     """
 
-    _useWizardInterface()
-    setVerbosity()
-    _saveConfig()
-    _setRequestFromFile()
-    _cleanupOptions()
+    _useWizardInterface()       # 启动引导模式
+    setVerbosity()              # 设置默认的日志输出详细度
+    _saveConfig()               # 保存当前扫描的配置
+    _setRequestFromFile()       # 解析 request file 的文件内容
+    _cleanupOptions()           # 为 conf 中的参数赋初值
     _cleanupEnvironment()
-    _purge()
-    _checkDependencies()
-    _createHomeDirectories()
-    _createTemporaryDirectory()
-    _basicOptionValidation()
-    _setProxyList()
-    _setTorProxySettings()
-    _setDNSServer()
-    _adjustLoggingFormatter()
-    _setMultipleTargets()
-    _listTamperingFunctions()
-    _setTamperingFunctions()
-    _setPreprocessFunctions()
-    _setPostprocessFunctions()
-    _setTrafficOutputFP()
-    _setupHTTPCollector()
-    _setHttpChunked()
-    _checkWebSocket()
+    _purge()                    # 清空 sqlmap 相关信息
+    _checkDependencies()        # 检查是否缺失依赖
+    _createHomeDirectories()    # 创建 output、history 目录
+    _createTemporaryDirectory() # 创建临时目录
+    _basicOptionValidation()    # 验证部分参数值是否符合预期
+    _setProxyList()             # 解析 proxy file 的文件内容
+    _setTorProxySettings()      # 设置 tor 代理
+    _setDNSServer()             # 创建 DNS 服务器
+    _adjustLoggingFormatter()   # 初始化日志格式化工具
+    _setMultipleTargets()       # 解析 burp log 的文件内容
+    _listTamperingFunctions()   # 输出 tamper 的详细信息
+    _setTamperingFunctions()    # 设置后续要调用的 tamper
+    _setPreprocessFunctions()   # 设置处理请求的函数
+    _setPostprocessFunctions()  # 设置处理响应的函数
+    _setTrafficOutputFP()       # 创建 trafficFile 并获取文件句柄
+    _setupHTTPCollector()       # 创建 HAR 文件
+    _setHttpChunked()           # 设置 chunked 
+    _checkWebSocket()           # 检查 websocket 环境是否正常
 
-    parseTargetDirect()
+    parseTargetDirect()         # 解析数据库链接
 
     if any((conf.url, conf.logFile, conf.bulkFile, conf.requestFile, conf.googleDork, conf.stdinPipe)):
-        _setHostname()
-        _setHTTPTimeout()
-        _setHTTPExtraHeaders()
-        _setHTTPCookies()
-        _setHTTPReferer()
-        _setHTTPHost()
-        _setHTTPUserAgent()
-        _setHTTPAuthentication()
-        _setHTTPHandlers()
-        _setDNSCache()
-        _setSocketPreConnect()
+        _setHostname()          # 设置 conf 中的 hostname
+        _setHTTPTimeout()       # 设置请求最大超时时间
+        _setHTTPExtraHeaders()  # 设置请求的 headers
+        _setHTTPCookies()       # 设置请求的 cookies
+        _setHTTPReferer() # 设置请求的 referer
+        _setHTTPHost() # 设置请求的 host
+        _setHTTPUserAgent() # 设置请求的 UA
+        _setHTTPAuthentication() # 设置请求的认证信息
+        _setHTTPHandlers() # 设置对应的请求处理类
+        _setDNSCache() # 设置 dns 缓存
+        _setSocketPreConnect() 
         _setSafeVisit()
-        _doSearch()
-        _setStdinPipeTargets()
-        _setBulkMultipleTargets()
-        _checkTor()
-        _setCrawler()
-        _findPageForms()
-        _setDBMS()
-        _setTechnique()
+        _doSearch() # 处理 Google Dork 解析
+        _setStdinPipeTargets() # 从 pipeline 中获取 targets
+        _setBulkMultipleTargets() # 从文本中获取 targets
+        _checkTor() # 检查 tor 代理
+        _setCrawler() # 设置爬虫信息
+        _findPageForms() # 寻找页面中的表单
+        _setDBMS() # 设置 DBMS
+        _setTechnique() # 设置检测类型
 
-    _setThreads()
-    _setOS()
-    _setWriteFile()
-    _setMetasploit()
-    _setDBMSAuthentication()
-    loadBoundaries()
-    loadPayloads()
-    _setPrefixSuffix()
-    update()
-    _loadQueries()
+    _setThreads() # 设置线程数
+    _setOS() # 设置操作系统类型
+    _setWriteFile() # 设置文件写入信息
+    _setMetasploit() # 设置 MSF 信息
+    _setDBMSAuthentication() # 设置 DBMS 的认证信息
+    loadBoundaries() # 加载 Boundaries
+    loadPayloads() # 加载 Payloads
+    _setPrefixSuffix() # 设置新的 prefix 和sufix
+    update() # 更新 sqlmap
+    _loadQueries() # 加载 queries

@@ -113,6 +113,7 @@ def checkSqlInjection(place, parameter, value):
     # Localized thread data needed for some methods
     threadData = getCurrentThreadData()
 
+    # 根据参数的类型选择 boundary
     # Favoring non-string specific boundaries in case of digit-like parameter values
     if isDigit(value):
         kb.cache.intBoundaries = kb.cache.intBoundaries or sorted(copy.deepcopy(conf.boundaries), key=lambda boundary: any(_ in (boundary.prefix or "") or _ in (boundary.suffix or "") for _ in ('"', '\'')))
@@ -1026,9 +1027,13 @@ def checkFilteredChars(injection):
     kb.injection = popValue()
 
 def heuristicCheckSqlInjection(place, parameter):
+    '''
+    过滤一些注入成功率较低的注入点
+    '''
     if conf.skipHeuristics:
         return None
 
+    # 初始化参数，并根据用户设置的偏好制作payload。
     origValue = conf.paramDict[place][parameter]
     paramType = conf.method if conf.method not in (None, HTTPMETHOD.GET, HTTPMETHOD.POST) else place
 
@@ -1048,14 +1053,18 @@ def heuristicCheckSqlInjection(place, parameter):
 
     kb.heuristicMode = True
 
+
+    # 使用用户设置的偏好prefix以及suffix，据此构造出合适的payload
     payload = "%s%s%s" % (prefix, randStr, suffix)
     payload = agent.payload(place, parameter, newValue=payload)
+    # 利用payload 请求目标页面的响应内容。
     page, _, code = Request.queryPage(payload, place, content=True, raise404=False)
 
     kb.heuristicPage = page
     kb.heuristicCode = code
     kb.heuristicMode = False
 
+    # 检测请求目标的响应中是否有数据库错误。
     parseFilePaths(page)
     result = wasLastResponseDBMSError()
 
@@ -1070,12 +1079,14 @@ def heuristicCheckSqlInjection(place, parameter):
         randInt = int(randomInt())
         payload = "%s%s%s" % (prefix, "%d-%d" % (int(origValue) + randInt, randInt), suffix)
         payload = agent.payload(place, parameter, newValue=payload, where=PAYLOAD.WHERE.REPLACE)
+        # 如果为数据库报错信息，那么result的值为True
         result = Request.queryPage(payload, place, raise404=False)
 
         if not result:
             randStr = randomStr()
             payload = "%s%s%s" % (prefix, "%s.%d%s" % (origValue, random.randint(1, 9), randStr), suffix)
             payload = agent.payload(place, parameter, newValue=payload, where=PAYLOAD.WHERE.REPLACE)
+            # 如果是设置在sqlmap/lib/core/settings.py文件中FORMAT_EXCEPTION_SRTINGS配置项中定义的类型转化错误信息，那么就会用casting来储存错误内容
             casting = Request.queryPage(payload, place, raise404=False)
 
     kb.heuristicTest = HEURISTIC_TEST.CASTED if casting else HEURISTIC_TEST.NEGATIVE if not result else HEURISTIC_TEST.POSITIVE
@@ -1085,6 +1096,7 @@ def heuristicCheckSqlInjection(place, parameter):
         logger.debug(debugMsg)
         return kb.heuristicTest
 
+    # 当存在定义的问题时，发出报错信息。
     if casting:
         errMsg = "possible %s casting detected (e.g. '" % ("integer" if origValue.isdigit() else "type")
 
@@ -1105,12 +1117,14 @@ def heuristicCheckSqlInjection(place, parameter):
             message = "do you want to skip those kind of cases (and save scanning time)? %s " % ("[Y/n]" if conf.multipleTargets else "[y/N]")
             kb.ignoreCasted = readInput(message, default='Y' if conf.multipleTargets else 'N', boolean=True)
 
+    # 当数据库报错时，判断出注入漏洞很可能存在。
     elif result:
         infoMsg += "be injectable"
         if Backend.getErrorParsedDBMSes():
             infoMsg += " (possible DBMS: '%s')" % Format.getErrorParsedDBMSes()
         logger.info(infoMsg)
 
+    # 否则判定为不存在注入漏洞。
     else:
         infoMsg += "not be injectable"
         logger.warning(infoMsg)
@@ -1118,6 +1132,7 @@ def heuristicCheckSqlInjection(place, parameter):
     kb.heuristicMode = True
     kb.disableHtmlDecoding = True
 
+    # 更换payload，检测xss以及文件包含。
     randStr1, randStr2 = randomStr(NON_SQLI_CHECK_PREFIX_SUFFIX_LENGTH), randomStr(NON_SQLI_CHECK_PREFIX_SUFFIX_LENGTH)
     value = "%s%s%s" % (randStr1, DUMMY_NON_SQLI_CHECK_APPENDIX, randStr2)
     payload = "%s%s%s" % (prefix, "'%s" % value, suffix)
@@ -1126,6 +1141,7 @@ def heuristicCheckSqlInjection(place, parameter):
 
     paramType = conf.method if conf.method not in (None, HTTPMETHOD.GET, HTTPMETHOD.POST) else place
 
+    # 进行xss检测
     # Reference: https://bugs.python.org/issue18183
     if value.upper() in (page or "").upper():
         infoMsg = "heuristic (XSS) test shows that %sparameter '%s' might be vulnerable to cross-site scripting (XSS) attacks" % ("%s " % paramType if paramType != parameter else "", parameter)
@@ -1134,6 +1150,7 @@ def heuristicCheckSqlInjection(place, parameter):
         if conf.beep:
             beep()
 
+    # 进行文件包含检测
     for match in re.finditer(FI_ERROR_REGEX, page or ""):
         if randStr1.lower() in match.group(0).lower():
             infoMsg = "heuristic (FI) test shows that %sparameter '%s' might be vulnerable to file inclusion (FI) attacks" % ("%s " % paramType if paramType != parameter else "", parameter)
@@ -1355,10 +1372,12 @@ def checkWaf():
     infoMsg += "some kind of WAF/IPS"
     logger.info(infoMsg)
 
+    # 默认设置为没有waf，并且配置容易引起waf拦截的payload。
     retVal = False
     payload = "%d %s" % (randomInt(), IPS_WAF_CHECK_PAYLOAD)
 
     place = PLACE.GET
+    # 根据注入点的位置，决定payload插入的位置，然后发送测试请求，获取响应的返回值。
     if PLACE.URI in conf.parameters:
         value = "%s=%s" % (randomStr(), agent.addPayloadDelimiters(payload))
     else:
@@ -1374,6 +1393,7 @@ def checkWaf():
     conf.timeout = IPS_WAF_CHECK_TIMEOUT
 
     try:
+        # 判断retVal即页面相似度和预设的阈值大小比较关系。
         retVal = (Request.queryPage(place=place, value=value, getRatioValue=True, noteResponseTime=False, silent=True, raise404=False, disableTampering=True)[1] or 0) < IPS_WAF_CHECK_RATIO
     except SqlmapConnectionException:
         retVal = True

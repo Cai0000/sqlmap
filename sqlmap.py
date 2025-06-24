@@ -114,6 +114,10 @@ def modulePath():
     return getUnicode(os.path.dirname(os.path.realpath(_)), encoding=sys.getfilesystemencoding() or UNICODE_ENCODING)
 
 def checkEnvironment():
+    '''
+    存放sqlmap的路径是否包含非ASCII字符
+    sqlmap的版本是否小于1.0
+    '''
     try:
         os.path.isdir(modulePath())
     except UnicodeEncodeError:
@@ -144,12 +148,13 @@ def main():
     """
 
     try:
-        dirtyPatches()
-        resolveCrossReferences()
-        checkEnvironment()
-        setPaths(modulePath())
-        banner()
+        dirtyPatches()                  # 补丁函数
+        resolveCrossReferences()        # 消除交叉引用
+        checkEnvironment()              # 检查环境
+        setPaths(modulePath())          # 如果使用py2exe 作为file获取程序路径的替代 设置绝对路径
+        banner()                        # 绘制字符画
 
+        # 命令行参数解析
         # Store original command line options for possible later restoration
         args = cmdLineParser()
         cmdLineOptions.update(args.__dict__ if hasattr(args, "__dict__") else args)
@@ -623,4 +628,5 @@ if __name__ == "__main__":
             sys.exit(getattr(os, "_exitcode", 0))
 else:
     # cancelling postponed imports (because of CI/CD checks)
+    # 动态导入模块
     __import__("lib.controller.controller")

@@ -301,6 +301,7 @@ def start():
         targetCount += 1
 
         try:
+            # 网络连通性测试
             if conf.checkInternet:
                 infoMsg = "checking for Internet connection"
                 logger.info(infoMsg)
@@ -331,18 +332,21 @@ def start():
             conf.httpHeaders = list(initialHeaders)
             conf.httpHeaders.extend(targetHeaders or [])
 
+            # 配置随机的User-Agent信息
             if conf.randomAgent or conf.mobile:
                 for header, value in initialHeaders:
                     if header.upper() == HTTP_HEADER.USER_AGENT.upper():
                         conf.httpHeaders.append((header, value))
                         break
 
+            # 判断是否指定了POST数据
             if conf.data:
                 # Note: explicitly URL encode __ ASP(.NET) parameters (e.g. to avoid problems with Base64 encoded '+' character) - standard procedure in web browsers
                 conf.data = re.sub(r"\b(__\w+)=([^&]+)", lambda match: "%s=%s" % (match.group(1), urlencode(match.group(2), safe='%')), conf.data)
 
             conf.httpHeaders = [conf.httpHeaders[i] for i in xrange(len(conf.httpHeaders)) if conf.httpHeaders[i][0].upper() not in (__[0].upper() for __ in conf.httpHeaders[i + 1:])]
 
+            # URL合理性检查
             initTargetEnv()
             parseTargetUrl()
 
@@ -360,6 +364,7 @@ def start():
                 if paramKey not in kb.testedParams:
                     testSqlInj = True
 
+            # 判断当前的查询在缓存中是否存在，如果存在，会跳过当前的检查目标
             if testSqlInj and conf.hostname in kb.vulnHosts:
                 if kb.skipVulnHost is None:
                     message = "SQL injection vulnerability has already been detected "
@@ -433,6 +438,7 @@ def start():
 
             setupTargetEnv()
 
+            # 如果连接不上，跳过当前测试目标。
             if not checkConnection(suppressOutput=conf.forms):
                 continue
 
@@ -445,11 +451,18 @@ def start():
                     if options:
                         kb.randomPool[name] = options
 
+            # 如果可以连接上，判断目标是否存在waf。
             checkWaf()
 
             if conf.nullConnection:
                 checkNullConnection()
 
+            # 开始检测
+            '''
+            在SQL正式注入测试之前，sqlmap会对每个目标的参数进行过滤。
+            将那些非动态的，不存在注入可能的参数剔除掉，留下可能的注入点。
+            这样sqlmap仅需要对这些可能的注入点进行正式的注入测试即可
+            '''
             if (len(kb.injections) == 0 or (len(kb.injections) == 1 and kb.injections[0].place is None)) and (kb.injection.place is None or kb.injection.parameter is None):
                 if not any((conf.string, conf.notString, conf.regexp)) and PAYLOAD.TECHNIQUE.BOOLEAN in conf.technique:
                     # NOTE: this is not needed anymore, leaving only to display
@@ -457,6 +470,7 @@ def start():
                     checkStability()
 
                 # Do a little prioritization reorder of a testable parameter list
+                # sqlmap首先对所有可用于注入测试的参数进行简单的优先级排序。
                 parameters = list(conf.parameters.keys())
 
                 # Order of testing list (first to last)
@@ -467,6 +481,7 @@ def start():
                         parameters.remove(place)
                         parameters.insert(0, place)
 
+                # 对测试参数排好序之后，系统开始对参数进行过滤操作。
                 proceed = True
                 for place in parameters:
                     # Test User-Agent and Referer headers only if
@@ -585,16 +600,20 @@ def start():
                                 infoMsg = "%sparameter '%s' appears to be dynamic" % ("%s " % paramType if paramType != parameter else "", parameter)
                                 logger.info(infoMsg)
 
+                        # 经过过滤，将该参数加入到测试过的参数中，防止重复测试。
                         kb.testedParams.add(paramKey)
 
+                        # 开始注入测试
                         if testSqlInj:
                             try:
                                 if place == PLACE.COOKIE:
                                     pushValue(kb.mergeCookies)
                                     kb.mergeCookies = False
 
+                                # 进入启发式注入测试。
                                 check = heuristicCheckSqlInjection(place, parameter)
 
+                                # 当启发式注入测试失败，就跳过该参数。
                                 if check != HEURISTIC_TEST.POSITIVE:
                                     if conf.smart or (kb.ignoreCasted and check == HEURISTIC_TEST.CASTED):
                                         infoMsg = "skipping %sparameter '%s'" % ("%s " % paramType if paramType != parameter else "", parameter)
@@ -604,6 +623,7 @@ def start():
                                 infoMsg = "testing for SQL injection on %sparameter '%s'" % ("%s " % paramType if paramType != parameter else "", parameter)
                                 logger.info(infoMsg)
 
+                                # ⭐⭐通过启发式注入测试后，就会进入到SQL注入测试阶段。
                                 injection = checkSqlInjection(place, parameter, value)
                                 proceed = not kb.endDetection
                                 injectable = False
